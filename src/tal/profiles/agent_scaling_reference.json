@@ -1,0 +1,121 @@
+{
+  "profile_set_id": "agent_scaling_reference",
+  "source_ref": "https://github.com/ybkim95/agent-scaling",
+  "source_revision": "v2.1.3",
+  "profiles": [
+    {
+      "profile_id": "single",
+      "architecture": "single",
+      "actors": [{"actor_id": "actor:single", "role": "solo"}],
+      "phases": [
+        {"phase_id": "phase:reason", "phase_type": "initial_reasoning", "eligible_entity_ids": ["actor:single"], "max_activations_per_entity": 100, "tool_mode": "declared"}
+      ],
+      "aggregation_policy": {"aggregation_type": "self"}
+    },
+    {
+      "profile_id": "independent",
+      "architecture": "independent",
+      "actors": [
+        {"actor_id": "actor:worker_a", "role": "worker", "allowed_recipients": ["stage:synthesis"]},
+        {"actor_id": "actor:worker_b", "role": "worker", "allowed_recipients": ["stage:synthesis"]},
+        {"actor_id": "actor:worker_c", "role": "worker", "allowed_recipients": ["stage:synthesis"]}
+      ],
+      "coordination_stages": [{"stage_id": "stage:synthesis", "role": "synthesizer", "model_calling": false}],
+      "communication_edges": [
+        {"sender_id": "actor:worker_a", "recipient_id": "stage:synthesis", "permitted_packet_kinds": ["submit_report"], "phase_refs": ["phase:report"]},
+        {"sender_id": "actor:worker_b", "recipient_id": "stage:synthesis", "permitted_packet_kinds": ["submit_report"], "phase_refs": ["phase:report"]},
+        {"sender_id": "actor:worker_c", "recipient_id": "stage:synthesis", "permitted_packet_kinds": ["submit_report"], "phase_refs": ["phase:report"]}
+      ],
+      "phases": [
+        {"phase_id": "phase:work", "phase_type": "initial_reasoning", "eligible_entity_ids": ["actor:worker_a", "actor:worker_b", "actor:worker_c"], "max_activations_per_entity": 25, "next_phase_ref": "phase:report"},
+        {"phase_id": "phase:report", "phase_type": "worker_reporting", "eligible_entity_ids": ["actor:worker_a", "actor:worker_b", "actor:worker_c"], "max_activations_per_entity": 1, "permitted_packet_kinds": ["submit_report"], "tool_mode": "none", "next_phase_ref": "phase:synthesis"},
+        {"phase_id": "phase:synthesis", "phase_type": "synthesis", "eligible_entity_ids": ["stage:synthesis"], "max_activations_per_entity": 1, "tool_mode": "none"}
+      ],
+      "aggregation_policy": {"aggregation_type": "synthesis_only"}
+    },
+    {
+      "profile_id": "centralized",
+      "architecture": "centralized",
+      "actors": [
+        {"actor_id": "actor:lead", "role": "orchestrator", "allowed_recipients": ["actor:worker_a", "actor:worker_b", "actor:worker_c"], "subgoal_authority": true},
+        {"actor_id": "actor:worker_a", "role": "worker", "allowed_recipients": ["actor:lead"]},
+        {"actor_id": "actor:worker_b", "role": "worker", "allowed_recipients": ["actor:lead"]},
+        {"actor_id": "actor:worker_c", "role": "worker", "allowed_recipients": ["actor:lead"]}
+      ],
+      "communication_edges": [
+        {"sender_id": "actor:lead", "recipient_id": "actor:worker_a", "permitted_packet_kinds": ["assign_subgoal", "request_information"], "phase_refs": ["phase:plan", "phase:work"]},
+        {"sender_id": "actor:lead", "recipient_id": "actor:worker_b", "permitted_packet_kinds": ["assign_subgoal", "request_information"], "phase_refs": ["phase:plan", "phase:work"]},
+        {"sender_id": "actor:lead", "recipient_id": "actor:worker_c", "permitted_packet_kinds": ["assign_subgoal", "request_information"], "phase_refs": ["phase:plan", "phase:work"]},
+        {"sender_id": "actor:worker_a", "recipient_id": "actor:lead", "permitted_packet_kinds": ["submit_report", "propose_subgoal_completion", "recommend_action"], "phase_refs": ["phase:report"]},
+        {"sender_id": "actor:worker_b", "recipient_id": "actor:lead", "permitted_packet_kinds": ["submit_report", "propose_subgoal_completion", "recommend_action"], "phase_refs": ["phase:report"]},
+        {"sender_id": "actor:worker_c", "recipient_id": "actor:lead", "permitted_packet_kinds": ["submit_report", "propose_subgoal_completion", "recommend_action"], "phase_refs": ["phase:report"]}
+      ],
+      "phases": [
+        {"phase_id": "phase:plan", "phase_type": "orchestrator_planning", "eligible_entity_ids": ["actor:lead"], "max_activations_per_entity": 1, "permitted_packet_kinds": ["assign_subgoal", "request_information"], "tool_mode": "none", "next_phase_ref": "phase:work"},
+        {"phase_id": "phase:work", "phase_type": "worker_execution", "eligible_entity_ids": ["actor:worker_a", "actor:worker_b", "actor:worker_c"], "max_activations_per_entity": 25, "max_rounds": 10, "next_phase_ref": "phase:report"},
+        {"phase_id": "phase:report", "phase_type": "worker_reporting", "eligible_entity_ids": ["actor:worker_a", "actor:worker_b", "actor:worker_c"], "max_activations_per_entity": 1, "max_rounds": 10, "permitted_packet_kinds": ["submit_report", "propose_subgoal_completion", "recommend_action"], "tool_mode": "none", "next_phase_ref": "phase:review"},
+        {"phase_id": "phase:review", "phase_type": "synthesis", "eligible_entity_ids": ["actor:lead"], "max_activations_per_entity": 1, "max_rounds": 10, "tool_mode": "declared"}
+      ],
+      "aggregation_policy": {"aggregation_type": "orchestrator", "model_calling": true},
+      "failure_policy": {"actor_failure_handling": "reassign_existing", "allow_existing_actor_reassignment": true}
+    },
+    {
+      "profile_id": "decentralized",
+      "architecture": "decentralized",
+      "actors": [
+        {"actor_id": "actor:peer_a", "role": "peer", "allowed_recipients": ["actor:peer_b", "actor:peer_c"]},
+        {"actor_id": "actor:peer_b", "role": "peer", "allowed_recipients": ["actor:peer_a", "actor:peer_c"]},
+        {"actor_id": "actor:peer_c", "role": "peer", "allowed_recipients": ["actor:peer_a", "actor:peer_b"]}
+      ],
+      "coordination_stages": [{"stage_id": "stage:vote", "role": "consensus", "model_calling": false}],
+      "communication_edges": [
+        {"sender_id": "actor:peer_a", "recipient_id": "actor:peer_b", "permitted_packet_kinds": ["submit_report", "challenge_claim", "request_peer_check", "recommend_action", "submit_vote"], "phase_refs": ["phase:debate"]},
+        {"sender_id": "actor:peer_a", "recipient_id": "actor:peer_c", "permitted_packet_kinds": ["submit_report", "challenge_claim", "request_peer_check", "recommend_action", "submit_vote"], "phase_refs": ["phase:debate"]},
+        {"sender_id": "actor:peer_b", "recipient_id": "actor:peer_a", "permitted_packet_kinds": ["submit_report", "challenge_claim", "request_peer_check", "recommend_action", "submit_vote"], "phase_refs": ["phase:debate"]},
+        {"sender_id": "actor:peer_b", "recipient_id": "actor:peer_c", "permitted_packet_kinds": ["submit_report", "challenge_claim", "request_peer_check", "recommend_action", "submit_vote"], "phase_refs": ["phase:debate"]},
+        {"sender_id": "actor:peer_c", "recipient_id": "actor:peer_a", "permitted_packet_kinds": ["submit_report", "challenge_claim", "request_peer_check", "recommend_action", "submit_vote"], "phase_refs": ["phase:debate"]},
+        {"sender_id": "actor:peer_c", "recipient_id": "actor:peer_b", "permitted_packet_kinds": ["submit_report", "challenge_claim", "request_peer_check", "recommend_action", "submit_vote"], "phase_refs": ["phase:debate"]}
+      ],
+      "phases": [
+        {"phase_id": "phase:initial", "phase_type": "initial_reasoning", "eligible_entity_ids": ["actor:peer_a", "actor:peer_b", "actor:peer_c"], "max_activations_per_entity": 25, "next_phase_ref": "phase:debate"},
+        {"phase_id": "phase:debate", "phase_type": "debate", "eligible_entity_ids": ["actor:peer_a", "actor:peer_b", "actor:peer_c"], "max_activations_per_entity": 25, "max_rounds": 9, "permitted_packet_kinds": ["submit_report", "challenge_claim", "request_peer_check", "recommend_action", "submit_vote"], "next_phase_ref": "phase:consensus"},
+        {"phase_id": "phase:consensus", "phase_type": "consensus", "eligible_entity_ids": ["stage:vote"], "max_activations_per_entity": 1, "tool_mode": "none"}
+      ],
+      "aggregation_policy": {"aggregation_type": "consensus", "peer_debate": true},
+      "consensus_policy": {"consensus_type": "threshold", "threshold_basis_points": 7000, "threshold_gates_selection": false}
+    },
+    {
+      "profile_id": "hybrid",
+      "architecture": "hybrid",
+      "actors": [
+        {"actor_id": "actor:lead", "role": "orchestrator", "allowed_recipients": ["actor:worker_a", "actor:worker_b", "actor:worker_c"], "subgoal_authority": true},
+        {"actor_id": "actor:worker_a", "role": "worker", "allowed_recipients": ["actor:lead", "actor:worker_b", "actor:worker_c"]},
+        {"actor_id": "actor:worker_b", "role": "worker", "allowed_recipients": ["actor:lead", "actor:worker_a", "actor:worker_c"]},
+        {"actor_id": "actor:worker_c", "role": "worker", "allowed_recipients": ["actor:lead", "actor:worker_a", "actor:worker_b"]}
+      ],
+      "communication_edges": [
+        {"sender_id": "actor:lead", "recipient_id": "actor:worker_a", "permitted_packet_kinds": ["assign_subgoal", "request_information"], "phase_refs": ["phase:plan", "phase:work"]},
+        {"sender_id": "actor:lead", "recipient_id": "actor:worker_b", "permitted_packet_kinds": ["assign_subgoal", "request_information"], "phase_refs": ["phase:plan", "phase:work"]},
+        {"sender_id": "actor:lead", "recipient_id": "actor:worker_c", "permitted_packet_kinds": ["assign_subgoal", "request_information"], "phase_refs": ["phase:plan", "phase:work"]},
+        {"sender_id": "actor:worker_a", "recipient_id": "actor:lead", "permitted_packet_kinds": ["submit_report", "propose_subgoal_completion", "recommend_action"], "phase_refs": ["phase:report"]},
+        {"sender_id": "actor:worker_b", "recipient_id": "actor:lead", "permitted_packet_kinds": ["submit_report", "propose_subgoal_completion", "recommend_action"], "phase_refs": ["phase:report"]},
+        {"sender_id": "actor:worker_c", "recipient_id": "actor:lead", "permitted_packet_kinds": ["submit_report", "propose_subgoal_completion", "recommend_action"], "phase_refs": ["phase:report"]},
+        {"sender_id": "actor:worker_a", "recipient_id": "actor:worker_b", "permitted_packet_kinds": ["submit_report", "challenge_claim", "request_peer_check"], "phase_refs": ["phase:peer"]},
+        {"sender_id": "actor:worker_a", "recipient_id": "actor:worker_c", "permitted_packet_kinds": ["submit_report", "challenge_claim", "request_peer_check"], "phase_refs": ["phase:peer"]},
+        {"sender_id": "actor:worker_b", "recipient_id": "actor:worker_a", "permitted_packet_kinds": ["submit_report", "challenge_claim", "request_peer_check"], "phase_refs": ["phase:peer"]},
+        {"sender_id": "actor:worker_b", "recipient_id": "actor:worker_c", "permitted_packet_kinds": ["submit_report", "challenge_claim", "request_peer_check"], "phase_refs": ["phase:peer"]},
+        {"sender_id": "actor:worker_c", "recipient_id": "actor:worker_a", "permitted_packet_kinds": ["submit_report", "challenge_claim", "request_peer_check"], "phase_refs": ["phase:peer"]},
+        {"sender_id": "actor:worker_c", "recipient_id": "actor:worker_b", "permitted_packet_kinds": ["submit_report", "challenge_claim", "request_peer_check"], "phase_refs": ["phase:peer"]}
+      ],
+      "phases": [
+        {"phase_id": "phase:plan", "phase_type": "orchestrator_planning", "eligible_entity_ids": ["actor:lead"], "max_activations_per_entity": 1, "permitted_packet_kinds": ["assign_subgoal", "request_information"], "tool_mode": "none", "next_phase_ref": "phase:work"},
+        {"phase_id": "phase:work", "phase_type": "worker_execution", "eligible_entity_ids": ["actor:worker_a", "actor:worker_b", "actor:worker_c"], "max_activations_per_entity": 25, "max_rounds": 10, "next_phase_ref": "phase:peer"},
+        {"phase_id": "phase:peer", "phase_type": "peer_exchange", "eligible_entity_ids": ["actor:worker_a", "actor:worker_b", "actor:worker_c"], "max_activations_per_entity": 1, "permitted_packet_kinds": ["submit_report", "challenge_claim", "request_peer_check"], "tool_mode": "none", "next_phase_ref": "phase:report"},
+        {"phase_id": "phase:report", "phase_type": "worker_reporting", "eligible_entity_ids": ["actor:worker_a", "actor:worker_b", "actor:worker_c"], "max_activations_per_entity": 1, "permitted_packet_kinds": ["submit_report", "propose_subgoal_completion", "recommend_action"], "tool_mode": "none", "next_phase_ref": "phase:synthesis"},
+        {"phase_id": "phase:synthesis", "phase_type": "synthesis", "eligible_entity_ids": ["actor:lead"], "max_activations_per_entity": 1, "tool_mode": "declared"}
+      ],
+      "aggregation_policy": {"aggregation_type": "orchestrator", "peer_debate": true, "model_calling": true},
+      "failure_policy": {"actor_failure_handling": "reassign_existing", "allow_existing_actor_reassignment": true}
+    }
+  ]
+}

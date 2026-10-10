@@ -1,0 +1,9 @@
+# Build only from the vendored, revision-locked Finance-Agent source tree.
+FROM ghcr.io/astral-sh/uv:0.12.5 AS uv
+FROM python:3.12-slim
+WORKDIR /opt/finance-agent
+COPY --from=uv /uv /uvx /bin/
+COPY research/upstream-finance-agent/pyproject.toml research/upstream-finance-agent/uv.lock ./
+RUN uv sync --locked --no-dev
+COPY research/upstream-finance-agent ./
+ENTRYPOINT ["python", "-m", "finance_agent.run_agent"]

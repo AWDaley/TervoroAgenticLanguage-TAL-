@@ -1,0 +1,34 @@
+{
+  "request": {"request_id": "req:valid", "submitted_by": "user:alex", "submitted_at": "2026-08-17T12:00:00Z", "submission_channel": "fixture"},
+  "scope": {
+    "scope_id": "scope:invoice", "organization_ref": "org:demo", "target_refs": ["invoice:I-452"], "timezone": "America/New_York",
+    "entity_declarations": [
+      {"ref": "invoice:I-452", "entity_type": "invoice"},
+      {"ref": "vendor:V-104", "entity_type": "vendor"},
+      {"ref": "contract:C-4", "entity_type": "contract"},
+      {"ref": "user:finance_manager", "entity_type": "user"}
+    ]
+  },
+  "goal": {"goal_id": "goal:resolve", "actor_ref": "agent:mercury", "owner_ref": "user:alex", "target_ref": "invoice:I-452"},
+  "reported_facts": [
+    {"id": "fact:vendor", "subject_ref": "invoice:I-452", "field_id": "invoice.vendor_name", "value": "Acme Industrial", "source": {"source_type": "user_submission", "source_ref": "req:valid"}},
+    {"id": "fact:amount", "subject_ref": "invoice:I-452", "field_id": "invoice.amount", "value": {"amount": "400.00", "currency": "USD"}, "source": {"source_type": "user_submission", "source_ref": "req:valid"}}
+  ],
+  "unknowns": [],
+  "requirements": [],
+  "constraints": [{"id": "constraint:models", "kind": "model_calls", "maximum": 12}, {"id": "constraint:tools", "kind": "tool_calls", "maximum": 12}, {"id": "constraint:external", "kind": "external_actions", "maximum": 4}],
+  "preferences": [],
+  "requested_capabilities": [
+    {"id": "cap:vendor", "action_id": "vendor.lookup", "target_ref": "invoice:I-452"},
+    {"id": "cap:draft", "action_id": "message.draft", "target_ref": "invoice:I-452"},
+    {"id": "cap:send", "action_id": "message.send", "target_ref": "invoice:I-452"},
+    {"id": "cap:submit", "action_id": "payment.submit", "target_ref": "invoice:I-452"}
+  ],
+  "prohibited_actions": [{"id": "prohibit:submit", "action_id": "payment.submit", "target_ref": "invoice:I-452"}],
+  "success_conditions": [
+    {"id": "success:delivered", "condition_id": "approval_package_delivered", "terminal_outcome": "approval_package_delivered", "verification_mode": "trusted_tool", "required_evidence_types": ["message_delivery"]},
+    {"id": "success:rejected", "condition_id": "invoice_rejected_with_reason", "terminal_outcome": "invoice_rejected", "verification_mode": "deterministic_validator", "required_evidence_types": ["rejection_reason"]}
+  ],
+  "fallbacks": [{"id": "fallback:budget", "trigger": "budget_exhausted", "terminal_outcome": "escalated", "target_ref": "user:alex"}],
+  "output_contract": {"output_type": "invoice_resolution_summary", "required_fields": ["outcome", "evidence_summary", "remaining_unknowns", "audit_reference"], "format": "json", "destination": "stdout"}
+}

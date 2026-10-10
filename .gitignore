@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.uv-cache/
+dist/
+build/
+*.egg-info/
+*.db
+research/raw/
+research/upstream-agent-scaling/
+research/upstream-finance-agent/

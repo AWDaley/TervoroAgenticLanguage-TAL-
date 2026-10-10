@@ -1,0 +1,9 @@
+# The PlanCraft runtime is intentionally built from the source snapshot supplied at
+# certification time.  It must be digest-pinned in ExperimentFreeze before use.
+FROM python:3.12-slim
+WORKDIR /opt/plancraft
+COPY research/vendor-lock.json /opt/plancraft/vendor-lock.json
+# The package source hash is recorded in vendor-lock.json; the built image digest
+# (including resolved dependencies) is the executable freeze artifact.
+RUN pip install --no-cache-dir "plancraft==0.4.9"
+ENTRYPOINT ["python", "-m", "plancraft"]

@@ -1,0 +1,6 @@
+{
+  "request": {"request_id": "req:invalid", "submitted_by": "user:alex", "submitted_at": "2026-08-17T12:00:00Z", "submission_channel": "fixture"},
+  "scope": {"scope_id": "scope:invoice", "organization_ref": "org:demo", "target_refs": ["invoice:I-452"], "entity_declarations": [{"ref": "invoice:I-452", "entity_type": "invoice"}], "timezone": "America/New_York"},
+  "goal": {"goal_id": "goal:resolve", "actor_ref": "agent:mercury", "owner_ref": "user:alex", "target_ref": "invoice:I-452"},
+  "success_conditions": [{"id": "success:rejected", "condition_id": "invoice_rejected_with_reason", "terminal_outcome": "invoice_rejected", "verification_mode": "unregistered_mode"}]
+}

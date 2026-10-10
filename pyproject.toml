@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tervoro-agentic-language"
+version = "0.4.0rc2"
+description = "Offline TAL harness with sealed reproducible research-study contracts"
+license = "LicenseRef-Proprietary"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "cryptography>=43,<46",
+  "pydantic>=2.13,<3",
+  "typer>=0.15,<1",
+]
+
+[project.optional-dependencies]
+api = ["fastapi>=0.115,<1", "uvicorn>=0.34,<1"]
+dev = ["pytest>=8,<9", "pytest-cov>=6,<7", "hypothesis>=6,<7", "ruff>=0.9,<1", "mypy>=1.14,<2", "build>=1.2,<2", "twine>=6,<7"]
+
+[project.scripts]
+tal = "tal.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+tal = ["*.md", "fixtures/*.json", "profiles/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --basetemp=.pytest-tmp"
+xfail_strict = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src/tal"]
+
+[tool.uv]
+package = true

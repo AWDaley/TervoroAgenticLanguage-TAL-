@@ -1,0 +1,14 @@
+{
+  "agent_scaling": {
+    "repository": "https://github.com/SakanaAI/agent-scaling-laws",
+    "revision": "358d67e24c616073127ce1a8b78d4b632162848c"
+  },
+  "finance_agent": {
+    "repository": "https://github.com/ethanc111/finance-agent",
+    "revision": "8ba65f81ab759a8e0d44e72aabc5a47cf839d563"
+  },
+  "plancraft": {
+    "distribution": "plancraft==0.4.9",
+    "sdist_sha256": "da50a3130be8511b13329ad5d480a0304ad04ade98ce180388af12aa1a96a79b"
+  }
+}

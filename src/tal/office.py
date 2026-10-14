@@ -86,7 +86,7 @@ def compile_office_calendar_grant(draft: OfficeCalendarGrantDraft) -> SealedOffi
 
 
 def verify_office_calendar_grant(grant: SealedOfficeCalendarGrant) -> bool:
-    payload = grant.model_dump(exclude={"grant_hash"})
+    payload = grant.model_dump(mode="json", exclude={"grant_hash"})
     return grant.grant_hash == sha256(payload)
 
 

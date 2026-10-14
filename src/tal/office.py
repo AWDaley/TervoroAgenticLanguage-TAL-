@@ -223,7 +223,8 @@ def admit_office_calendar(
         return decision(OfficeAdmissionStatus.DENIED, "TARGET_NOT_GRANTED")
     if now >= grant.task_deadline:
         return decision(OfficeAdmissionStatus.DENIED, "TASK_EXPIRED")
-    if evidence.cycles_used >= grant.max_cycles or evidence.effects_used >= grant.max_external_effects:
+    if (evidence.cycles_used >= grant.max_cycles
+            or evidence.effects_used >= grant.max_external_effects):
         return decision(OfficeAdmissionStatus.DENIED, "BUDGET_EXHAUSTED")
     start, end = proposal.start_at.astimezone(UTC), proposal.end_at.astimezone(UTC)
     if (start < grant.allowed_start.astimezone(UTC)

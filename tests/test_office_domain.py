@@ -101,7 +101,8 @@ def test_observation_attack_denied(changes, code):
 
 def test_grant_tamper_denied():
     g, p, e = make_inputs()
-    assert admit_office_calendar(g.model_copy(update={"max_external_effects": 99}), p, e, now=NOW).reason_code == "GRANT_HASH_INVALID"
+    changed = g.model_copy(update={"max_external_effects": 99})
+    assert admit_office_calendar(changed, p, e, now=NOW).reason_code == "GRANT_HASH_INVALID"
 
 
 def test_approval_requires_independent_exact_bound_receipt():
@@ -126,14 +127,19 @@ def test_closed_contracts_reject_unknown_fields_and_naive_times():
     with pytest.raises(ValidationError):
         OfficeCalendarProposal.model_validate({**p.model_dump(), "unsupported": "execute_shell"})
     with pytest.raises(ValidationError):
-        OfficeCalendarProposal.model_validate({**p.model_dump(), "start_at": datetime(2026, 10, 14)})
+        OfficeCalendarProposal.model_validate(
+            {**p.model_dump(), "start_at": datetime(2026, 10, 14)}
+        )
     with pytest.raises(ValidationError):
-        OfficeCalendarGrantDraft.model_validate({**g.model_dump(exclude={"grant_hash"}), "operation": "email.send"})
+        OfficeCalendarGrantDraft.model_validate(
+            {**g.model_dump(exclude={"grant_hash"}), "operation": "email.send"}
+        )
 
 
 def test_expired_task_and_zero_budget_denied():
     g, p, e = make_inputs()
-    assert admit_office_calendar(g, p, e, now=g.task_deadline).status == OfficeAdmissionStatus.DENIED
+    result = admit_office_calendar(g, p, e, now=g.task_deadline)
+    assert result.status == OfficeAdmissionStatus.DENIED
     altered = g.model_copy(update={"max_external_effects": 0})
     resealed = compile_office_calendar_grant(OfficeCalendarGrantDraft.model_validate(
         altered.model_dump(exclude={"grant_hash"})

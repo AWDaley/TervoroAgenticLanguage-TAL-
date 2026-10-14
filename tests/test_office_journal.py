@@ -8,6 +8,7 @@ from datetime import timedelta
 
 import pytest
 from pydantic import ValidationError
+from test_office_domain import NOW, make_inputs
 
 from tal.core import sha256
 from tal.office import (
@@ -22,7 +23,6 @@ from tal.office_journal import (
     SQLiteOfficeJournal,
     replay_office_events,
 )
-from test_office_domain import NOW, make_inputs
 
 
 def _action() -> OfficeRuntimeAction:

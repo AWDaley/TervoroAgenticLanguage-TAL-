@@ -60,7 +60,19 @@ from .events import (
     event_projects_state,
 )
 from .invoice import ActionId, ConstraintKind, TALManifest, TerminalOutcome, ToolId
-from .office import OfficeAdmissionDecision, OfficeRuntimeAction, admit_runtime_office_action
+from .office import (
+    OfficeAdmissionDecision,
+    OfficeAdmissionStatus,
+    OfficeRuntimeAction,
+    admit_runtime_office_action,
+)
+from .office_journal import (
+    OfficeJournalIntegrityError,
+    OfficeJournalKind,
+    OfficeJournalProjection,
+    OfficeVerifiedEvidence,
+    SQLiteOfficeJournal,
+)
 from .storage import EventStore
 from .telemetry import ModelCallRecord
 from .validation import ValidationPipeline
@@ -135,6 +147,8 @@ class TALRuntime:
     clock: Clock = default_clock
     ids: IdProvider = field(default_factory=SequentialIds)
     grammar_path: Path = Path(__file__).with_name("grammar_sheet.md")
+    # Optional TAL-owned *audit*, never a tool dispatcher or executable permit.
+    office_journal: SQLiteOfficeJournal | None = None
 
     def grammar_hash(self) -> str:
         return "sha256:" + hashlib_sha256(self.grammar_path.read_bytes()).hexdigest()
@@ -499,9 +513,27 @@ class TALRuntime:
         The existing invoice branch retains its authoritative event-ledger behavior.
         """
         if isinstance(proposal, OfficeRuntimeAction):
-            return admit_runtime_office_action(
-                proposal, run_id=run_id, actor_id=actor_id, now=self.clock()
+            now = self.clock()
+            decision = admit_runtime_office_action(
+                proposal, run_id=run_id, actor_id=actor_id, now=now
             )
+            if (self.office_journal is not None
+                    and proposal.outbox_action_hash is not None):
+                try:
+                    self.office_journal.record_admission(
+                        proposal, decision, run_id=run_id,
+                        actor_id=actor_id or "", now=now,
+                    )
+                except OfficeJournalIntegrityError:
+                    # An inaccessible/changed journal can never authorize dispatch.
+                    return OfficeAdmissionDecision(
+                        status=OfficeAdmissionStatus.DENIED,
+                        reason_code="OFFICE_JOURNAL_INTEGRITY_FAILURE",
+                        grant_hash=proposal.grant.grant_hash,
+                        proposal_hash=decision.proposal_hash,
+                        state_version=decision.state_version,
+                    )
+            return decision
         state = self.store.load_state(run_id)
         if state.phase is not RuntimePhase.READY:
             return self._reject(
@@ -510,6 +542,19 @@ class TALRuntime:
                 f"model may not act from {state.phase.value}",
             )[1]
         return self._action_gate(state, proposal, actor_id=actor_id)
+
+    def record_office_outcome(
+        self, *, action_hash: str, kind: OfficeJournalKind,
+        reason_code: str, evidence: OfficeVerifiedEvidence | None = None,
+        now: datetime | None = None,
+    ) -> OfficeJournalProjection:
+        """Trusted verifier callback; no tool calls and no AI-created receipt."""
+        if self.office_journal is None:
+            raise OfficeJournalIntegrityError("office journal is not configured")
+        return self.office_journal.record_outcome(
+            action_hash=action_hash, kind=kind, reason_code=reason_code,
+            evidence=evidence, now=now or self.clock(),
+        )
 
     def _action_gate(
         self, state: RuntimeState, proposal: Proposal, *, actor_id: str | None = None

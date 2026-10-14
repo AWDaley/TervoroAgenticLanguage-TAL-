@@ -1,0 +1,22 @@
+name: TAL office audit lifecycle
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  office-ledger:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -e '.[dev]'
+      - name: Ruff
+        run: ruff check src/tal/office_journal.py tests/test_office_journal.py src/tal/runtime.py
+      - name: Strict static typing
+        run: mypy --strict src/tal/office_journal.py src/tal/runtime.py
+      - name: Office and legacy conformance
+        run: pytest -q tests/test_office_journal.py tests/test_office_runtime.py tests/test_office_domain.py tests/test_harness.py

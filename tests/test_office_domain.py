@@ -99,6 +99,20 @@ def test_observation_attack_denied(changes, code):
     assert admit_office_calendar(g, p, e.model_copy(update=changes), now=NOW).reason_code == code
 
 
+def test_non_utc_sealed_grant_uses_same_hash_preimage_as_compiler():
+    from zoneinfo import ZoneInfo
+
+    g, _, _ = make_inputs()
+    ny = ZoneInfo("America/New_York")
+    values = g.model_dump(exclude={"grant_hash"})
+    values["allowed_start"] = START.astimezone(ny)
+    values["allowed_end"] = (START + timedelta(hours=3)).astimezone(ny)
+    values["task_deadline"] = (END + timedelta(days=1)).astimezone(ny)
+    draft = OfficeCalendarGrantDraft.model_validate(values)
+    sealed = compile_office_calendar_grant(draft)
+    assert verify_office_calendar_grant(sealed)
+
+
 def test_grant_tamper_denied():
     g, p, e = make_inputs()
     changed = g.model_copy(update={"max_external_effects": 99})

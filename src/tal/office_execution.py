@@ -189,6 +189,6 @@ def require_office_execution_authorization(
     )
     if expected != authorization:
         raise OfficeExecutionAuthorizationDenied("OFFICE_AUTHORIZATION_BINDING_MISMATCH")
-    payload = authorization.model_dump(mode="json", exclude={"authorization_hash"})
+    payload = authorization.model_dump(mode="python", exclude={"authorization_hash"})
     if sha256(payload) != authorization.authorization_hash:
         raise OfficeExecutionAuthorizationDenied("OFFICE_AUTHORIZATION_SEAL_INVALID")

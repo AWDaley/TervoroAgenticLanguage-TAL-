@@ -66,6 +66,11 @@ from .office import (
     OfficeRuntimeAction,
     admit_runtime_office_action,
 )
+from .office_execution import (
+    OfficeExecutionAuthorization,
+    prepare_office_execution_authorization,
+    require_office_execution_authorization,
+)
 from .office_journal import (
     OfficeJournalIntegrityError,
     OfficeJournalKind,
@@ -542,6 +547,34 @@ class TALRuntime:
                 f"model may not act from {state.phase.value}",
             )[1]
         return self._action_gate(state, proposal, actor_id=actor_id)
+
+    def prepare_office_execution_authorization(
+        self, run_id: str, action: OfficeRuntimeAction, *,
+        actor_id: str | None = None,
+    ) -> OfficeExecutionAuthorization:
+        """Prepare a sealed authority record; protected outbox SQL must commit it.
+
+        This does not change the original non-executable OfficeAdmissionDecision,
+        write to an invoice tool, or issue any model-visible bearer capability.
+        """
+        issued_at = self.clock()
+        decision = self.apply_proposal(run_id, action, actor_id=actor_id)
+        if not isinstance(decision, OfficeAdmissionDecision):
+            raise TypeError("expected TAL office admission decision")
+        return prepare_office_execution_authorization(
+            action, decision, run_id=run_id, actor_id=actor_id, now=issued_at,
+        )
+
+    def require_office_execution_authorization(
+        self, authorization: OfficeExecutionAuthorization,
+        action: OfficeRuntimeAction, *, actor_id: str | None,
+        state_version: int,
+    ) -> None:
+        """Verify a record loaded from protected SQL before one NEW external effect."""
+        require_office_execution_authorization(
+            authorization, action, run_id=action.grant.task_id,
+            actor_id=actor_id, state_version=state_version, now=self.clock(),
+        )
 
     def record_office_outcome(
         self, *, action_hash: str, kind: OfficeJournalKind,

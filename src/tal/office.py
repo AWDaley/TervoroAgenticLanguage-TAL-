@@ -158,7 +158,7 @@ class TrustedOfficeCalendarEvidence(StrictModel):
     projected_template_id: Identifier
     projected_start_at: datetime
     projected_end_at: datetime
-    phase: Literal["SIMULATED", "READY_TO_COMMIT"]
+    phase: Literal["SIMULATED", "READY_TO_COMMIT", "EXECUTING"]
     state_version: int = Field(ge=0)
     cycles_used: int = Field(ge=0)
     effects_used: int = Field(ge=0)
@@ -259,3 +259,52 @@ def admit_office_calendar(
                 or now >= approval.expires_at):
             return decision(OfficeAdmissionStatus.DENIED, "APPROVAL_BINDING_INVALID")
     return decision(OfficeAdmissionStatus.ELIGIBLE, "TRUSTED_ADMISSION_ONLY")
+
+
+class OfficeRuntimeAction(StrictModel):
+    """Privileged runtime input for an office proposal already pinned to a task.
+
+    This is *not* an AI-visible API, signed capability or executable permit.
+    The authoritative caller must reconstruct its fields from trusted storage.
+    """
+
+    schema_version: Literal["tal.office.runtime_action.v1"] = "tal.office.runtime_action.v1"
+    grant: SealedOfficeCalendarGrant
+    proposal: OfficeCalendarProposal
+    evidence: TrustedOfficeCalendarEvidence
+    expected_state_version: int = Field(ge=0)
+    outbox_action_hash: Hash | None = None
+
+
+def admit_runtime_office_action(
+    action: OfficeRuntimeAction, *, run_id: str, actor_id: str | None, now: datetime,
+) -> OfficeAdmissionDecision:
+    """The first-class TAL runtime office branch: deterministic, never dispatches.
+
+    `TALRuntime.apply_proposal` invokes this only for a typed OfficeRuntimeAction.
+    No part of this function touches invoice tools, a provider or the event store.
+    SAFE-AGENT must still use its trusted SQL task/outbox ledger and verifier.
+    """
+    now = _aware(now)
+    evidence = action.evidence
+    proposal_hash = sha256(action.proposal)
+
+    def deny(reason: str) -> OfficeAdmissionDecision:
+        return OfficeAdmissionDecision(
+            status=OfficeAdmissionStatus.DENIED, reason_code=reason,
+            grant_hash=action.grant.grant_hash, proposal_hash=proposal_hash,
+            state_version=evidence.state_version,
+        )
+
+    if run_id != action.grant.task_id or run_id != action.proposal.task_id:
+        return deny("RUNTIME_TASK_ID_MISMATCH")
+    if actor_id is None or actor_id != action.grant.initiator_id:
+        return deny("RUNTIME_ACTOR_MISMATCH")
+    if action.expected_state_version != evidence.state_version:
+        return deny("RUNTIME_STALE_STATE_VERSION")
+    if evidence.phase == "EXECUTING":
+        if action.outbox_action_hash is None:
+            return deny("RUNTIME_OUTBOX_BINDING_MISSING")
+    elif evidence.phase != "READY_TO_COMMIT" or action.outbox_action_hash is not None:
+        return deny("RUNTIME_INVALID_EXECUTION_PHASE")
+    return admit_office_calendar(action.grant, action.proposal, evidence, now=now)

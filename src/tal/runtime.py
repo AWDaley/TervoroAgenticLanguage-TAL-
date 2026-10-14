@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from hashlib import sha256 as hashlib_sha256
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, overload
 
 from .adapters import (
     TOOL_CONTRACTS,
@@ -60,6 +60,7 @@ from .events import (
     event_projects_state,
 )
 from .invoice import ActionId, ConstraintKind, TALManifest, TerminalOutcome, ToolId
+from .office import OfficeAdmissionDecision, OfficeRuntimeAction, admit_runtime_office_action
 from .storage import EventStore
 from .telemetry import ModelCallRecord
 from .validation import ValidationPipeline
@@ -479,10 +480,28 @@ class TALRuntime:
             )
         return None
 
+    @overload
+    def apply_proposal(
+        self, run_id: str, proposal: OfficeRuntimeAction, actor_id: str | None = None
+    ) -> OfficeAdmissionDecision: ...
+
+    @overload
     def apply_proposal(
         self, run_id: str, proposal: Proposal, actor_id: str | None = None
-    ) -> RuntimeState | Rejection:
-        """Apply one proposal through the sole public authority boundary."""
+    ) -> RuntimeState | Rejection: ...
+
+    def apply_proposal(
+        self, run_id: str, proposal: Proposal | OfficeRuntimeAction, actor_id: str | None = None
+    ) -> RuntimeState | Rejection | OfficeAdmissionDecision:
+        """Single typed entrypoint. Office admission has no effect or execution grant.
+
+        Trusted office evidence must come from the external durable task store.
+        The existing invoice branch retains its authoritative event-ledger behavior.
+        """
+        if isinstance(proposal, OfficeRuntimeAction):
+            return admit_runtime_office_action(
+                proposal, run_id=run_id, actor_id=actor_id, now=self.clock()
+            )
         state = self.store.load_state(run_id)
         if state.phase is not RuntimePhase.READY:
             return self._reject(

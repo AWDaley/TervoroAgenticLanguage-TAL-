@@ -15,8 +15,8 @@ jobs:
           python-version: '3.12'
       - run: python -m pip install -e '.[dev]'
       - name: Lint office domain
-        run: ruff check src/tal/office.py tests/test_office_domain.py
+        run: ruff check src/tal/office.py src/tal/runtime.py tests/test_office_domain.py tests/test_office_runtime.py
       - name: Type check office domain
-        run: mypy --strict src/tal/office.py
+        run: mypy --strict src/tal/office.py src/tal/runtime.py
       - name: Run office conformance and legacy harness tests
-        run: pytest -q tests/test_office_domain.py tests/test_harness.py
+        run: pytest -q tests/test_office_domain.py tests/test_office_runtime.py tests/test_harness.py

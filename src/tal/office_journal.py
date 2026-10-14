@@ -10,7 +10,6 @@ must provide an independently reviewed storage implementation.
 
 from __future__ import annotations
 
-import json
 import sqlite3
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -23,7 +22,6 @@ from pydantic import Field, model_validator
 from .core import Hash, Identifier, StrictModel, sha256
 from .office import (
     OfficeAdmissionDecision,
-    OfficeAdmissionStatus,
     OfficeRuntimeAction,
     admit_runtime_office_action,
 )
@@ -266,7 +264,9 @@ class SQLiteOfficeJournal:
                 or first.source_manifest_hash != action.grant.source_manifest_hash
                 or first.source_proposal_hash != action.proposal.source_proposal_hash
             ):
-                raise OfficeJournalIntegrityError("attempted reuse of action with changed authority")
+                raise OfficeJournalIntegrityError(
+                    "attempted reuse of action with changed authority"
+                )
             return replay_office_events(existing)
         record = _seal({
             "schema_version": "tal.office.journal_event.v1",

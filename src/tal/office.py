@@ -223,8 +223,7 @@ def admit_office_calendar(
         return decision(OfficeAdmissionStatus.DENIED, "TARGET_NOT_GRANTED")
     if now >= grant.task_deadline:
         return decision(OfficeAdmissionStatus.DENIED, "TASK_EXPIRED")
-    if (evidence.cycles_used >= grant.max_cycles
-            or evidence.effects_used >= grant.max_external_effects):
+    if evidence.cycles_used >= grant.max_cycles or evidence.effects_used >= grant.max_external_effects:
         return decision(OfficeAdmissionStatus.DENIED, "BUDGET_EXHAUSTED")
     start, end = proposal.start_at.astimezone(UTC), proposal.end_at.astimezone(UTC)
     if (start < grant.allowed_start.astimezone(UTC)
@@ -259,3 +258,48 @@ def admit_office_calendar(
                 or now >= approval.expires_at):
             return decision(OfficeAdmissionStatus.DENIED, "APPROVAL_BINDING_INVALID")
     return decision(OfficeAdmissionStatus.ELIGIBLE, "TRUSTED_ADMISSION_ONLY")
+
+
+class OfficeRuntimeAction(StrictModel):
+    """Privileged runtime input for an office proposal already pinned to a task.
+
+    This is *not* an AI-visible API, signed capability or executable permit.
+    The authoritative caller must reconstruct its fields from trusted storage.
+    """
+
+    schema_version: Literal["tal.office.runtime_action.v1"] = "tal.office.runtime_action.v1"
+    grant: SealedOfficeCalendarGrant
+    proposal: OfficeCalendarProposal
+    evidence: TrustedOfficeCalendarEvidence
+    expected_state_version: int = Field(ge=0)
+
+
+def admit_runtime_office_action(
+    action: OfficeRuntimeAction, *, run_id: str, actor_id: str | None, now: datetime,
+) -> OfficeAdmissionDecision:
+    """The first-class TAL runtime office branch: deterministic, never dispatches.
+
+    `TALRuntime.apply_proposal` invokes this only for a typed OfficeRuntimeAction.
+    No part of this function touches invoice tools, a provider or the event store.
+    SAFE-AGENT must still use its trusted SQL task/outbox ledger and verifier.
+    """
+    now = _aware(now)
+    evidence = action.evidence
+    proposal_hash = sha256(action.proposal)
+
+    def deny(reason: str) -> OfficeAdmissionDecision:
+        return OfficeAdmissionDecision(
+            status=OfficeAdmissionStatus.DENIED, reason_code=reason,
+            grant_hash=action.grant.grant_hash, proposal_hash=proposal_hash,
+            state_version=evidence.state_version,
+        )
+
+    if run_id != action.grant.task_id or run_id != action.proposal.task_id:
+        return deny("RUNTIME_TASK_ID_MISMATCH")
+    if actor_id is None or actor_id != action.grant.initiator_id:
+        return deny("RUNTIME_ACTOR_MISMATCH")
+    if action.expected_state_version != evidence.state_version:
+        return deny("RUNTIME_STALE_STATE_VERSION")
+    if evidence.phase != "READY_TO_COMMIT":
+        return deny("RUNTIME_INVALID_EXECUTION_PHASE")
+    return admit_office_calendar(action.grant, action.proposal, evidence, now=now)

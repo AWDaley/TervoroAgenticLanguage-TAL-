@@ -158,7 +158,7 @@ class TrustedOfficeCalendarEvidence(StrictModel):
     projected_template_id: Identifier
     projected_start_at: datetime
     projected_end_at: datetime
-    phase: Literal["SIMULATED", "READY_TO_COMMIT"]
+    phase: Literal["SIMULATED", "READY_TO_COMMIT", "EXECUTING"]
     state_version: int = Field(ge=0)
     cycles_used: int = Field(ge=0)
     effects_used: int = Field(ge=0)
@@ -273,6 +273,7 @@ class OfficeRuntimeAction(StrictModel):
     proposal: OfficeCalendarProposal
     evidence: TrustedOfficeCalendarEvidence
     expected_state_version: int = Field(ge=0)
+    outbox_action_hash: Hash | None = None
 
 
 def admit_runtime_office_action(
@@ -301,6 +302,9 @@ def admit_runtime_office_action(
         return deny("RUNTIME_ACTOR_MISMATCH")
     if action.expected_state_version != evidence.state_version:
         return deny("RUNTIME_STALE_STATE_VERSION")
-    if evidence.phase != "READY_TO_COMMIT":
+    if evidence.phase == "EXECUTING":
+        if action.outbox_action_hash is None:
+            return deny("RUNTIME_OUTBOX_BINDING_MISSING")
+    elif evidence.phase != "READY_TO_COMMIT" or action.outbox_action_hash is not None:
         return deny("RUNTIME_INVALID_EXECUTION_PHASE")
     return admit_office_calendar(action.grant, action.proposal, evidence, now=now)

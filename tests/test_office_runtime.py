@@ -3,12 +3,13 @@ from __future__ import annotations
 
 from datetime import timedelta
 
+from test_office_domain import NOW, make_inputs
+
 from tal.office import (
     OfficeAdmissionStatus,
     OfficeRuntimeAction,
     admit_runtime_office_action,
 )
-from test_office_domain import NOW, make_inputs
 
 
 def action(*, requires_approval: bool = False) -> OfficeRuntimeAction:
@@ -77,3 +78,17 @@ def test_invoice_runtime_routes_office_action_without_creating_effect() -> None:
     assert runtime.apply_proposal(
         "wrong", cmd, actor_id="actor_test"
     ).status is OfficeAdmissionStatus.DENIED
+
+
+def test_pinned_outbox_dispatch_phase_requires_action_hash() -> None:
+    cmd = action()
+    executing = cmd.model_copy(update={
+        "evidence": cmd.evidence.model_copy(update={"phase": "EXECUTING"}),
+    })
+    assert check(executing).reason_code == "RUNTIME_OUTBOX_BINDING_MISSING"
+    executing = executing.model_copy(update={
+        "outbox_action_hash": "sha256:" + "a" * 64,
+    })
+    result = check(executing)
+    assert result.status is OfficeAdmissionStatus.ELIGIBLE
+    assert result.authorizes_execution is False

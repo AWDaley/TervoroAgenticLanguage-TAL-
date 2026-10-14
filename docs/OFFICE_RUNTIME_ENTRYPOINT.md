@@ -1,6 +1,6 @@
 # TAL office action runtime branch (non-executable)
 
-The existing `TALRuntime.apply_proposal()` now accepts a **closed** `OfficeRuntimeAction` in addition to the frozen invoice-domain `Proposal`. The runtime checks the task/run ID, initiating actor and pinned state version and requires a `READY_TO_COMMIT` evidence phase before calling the existing `admit_office_calendar` evaluator.
+The existing `TALRuntime.apply_proposal()` now accepts a **closed** `OfficeRuntimeAction` in addition to the frozen invoice-domain `Proposal`. The runtime checks the task/run ID, initiating actor and pinned state version and requires `READY_TO_COMMIT` or an `EXECUTING` phase with a pinned durable outbox action hash before calling the existing `admit_office_calendar` evaluator.
 
 The office branch **does not create or alter an invoice run**, mutate the TAL event store, invoke a tool, issue a signed execution capability, or authorize Google Calendar writes. It returns `OfficeAdmissionDecision(authorizes_execution=False)` for all outcomes. It must only be fed evidence rebuilt by a privileged server from its durable task ledger. An untrusted caller can construct a superficially valid request but this never grants any external effect.
 

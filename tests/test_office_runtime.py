@@ -8,7 +8,7 @@ from tal.office import (
     OfficeRuntimeAction,
     admit_runtime_office_action,
 )
-from tests.test_office_domain import NOW, make_inputs
+from test_office_domain import NOW, make_inputs
 
 
 def action(*, requires_approval: bool = False) -> OfficeRuntimeAction:
